@@ -14,27 +14,72 @@ import {
 } from "./db";
 
 // ─── Ajustes que podés editar a mano ───────────────────────────────
-const ADMIN_PIN = "cocina"; // código del panel. Es solo del lado del navegador
-// (alcanza para un evento interno; no es seguridad real).
+const ADMIN_PIN = "cocina"; // código del panel (solo del lado del navegador)
 // ────────────────────────────────────────────────────────────────────
 
+// Paleta: celeste y blanco de la bandera + rojo PSH de acento.
 const C = {
-  bg: "#241C26",
-  surface: "#312636",
-  surface2: "#3C2F42",
-  line: "#4A3A50",
-  cream: "#F6EEDF",
-  muted: "#A99BAE",
-  tang: "#FF7A3D",
-  pist: "#B6D67E",
-  gold: "#F4C24A",
-  silver: "#CFC9D6",
-  bronze: "#D49A6A",
-  danger: "#E5705B",
+  bg: "#EAF4FC",
+  bg2: "#DCEBF7",
+  surface: "#FFFFFF",
+  surface2: "#F2F8FD",
+  line: "#CFE2F2",
+  ink: "#182C3E",
+  muted: "#6A8299",
+  celeste: "#5AA9E6",
+  celesteDk: "#3E86C4",
+  red: "#E31E24",
+  redDk: "#C0161B",
+  gold: "#F2B12E",
+  silver: "#A9B7C4",
+  bronze: "#CB8A54",
+  green: "#2FA36B",
 };
 
 const display = "'Bricolage Grotesque', system-ui, sans-serif";
 const body = "'Inter', system-ui, sans-serif";
+
+function PshLogo({ size = 60 }) {
+  return (
+    <div
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size * 0.22,
+        background: C.red,
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        boxShadow: "0 8px 20px rgba(227,30,36,0.30)",
+      }}
+    >
+      <span
+        style={{
+          fontFamily: display,
+          fontWeight: 800,
+          color: "#fff",
+          fontSize: size * 0.42,
+          letterSpacing: -1.5,
+          lineHeight: 1,
+          paddingBottom: size * 0.04,
+        }}
+      >
+        psh
+      </span>
+    </div>
+  );
+}
+
+// Franja celeste-blanco-celeste, como la bandera.
+function FlagStripe() {
+  return (
+    <div style={{ display: "flex", height: 6, borderRadius: 4, overflow: "hidden", width: 72, margin: "0 auto" }}>
+      <div style={{ flex: 1, background: C.celeste }} />
+      <div style={{ flex: 1, background: "#fff" }} />
+      <div style={{ flex: 1, background: C.celeste }} />
+    </div>
+  );
+}
 
 export default function App() {
   const [view, setView] = useState("home");
@@ -62,7 +107,14 @@ export default function App() {
   }, [loadCore]);
 
   const wrap = (children) => (
-    <div style={{ fontFamily: body, background: C.bg, color: C.cream, minHeight: "100vh" }}>
+    <div
+      style={{
+        fontFamily: body,
+        background: `linear-gradient(180deg, ${C.bg} 0%, ${C.bg2} 100%)`,
+        color: C.ink,
+        minHeight: "100vh",
+      }}
+    >
       <div style={{ maxWidth: 560, margin: "0 auto", padding: "20px 16px 64px" }}>{children}</div>
     </div>
   );
@@ -72,8 +124,7 @@ export default function App() {
       <div style={{ paddingTop: 60 }}>
         <h2 style={{ fontFamily: display, fontWeight: 800, fontSize: 26 }}>Falta configurar Supabase</h2>
         <p style={{ color: C.muted, lineHeight: 1.6, marginTop: 12 }}>
-          Definí las variables <code>VITE_SUPABASE_URL</code> y <code>VITE_SUPABASE_ANON_KEY</code> en Vercel (o en un
-          archivo <code>.env</code> local) y volvé a deployar. Está todo explicado en el README.
+          Definí <code>VITE_SUPABASE_URL</code> y <code>VITE_SUPABASE_ANON_KEY</code> en Vercel y volvé a deployar.
         </p>
       </div>
     );
@@ -84,11 +135,8 @@ export default function App() {
   if (err)
     return wrap(
       <div style={{ paddingTop: 60 }}>
-        <h2 style={{ fontFamily: display, fontWeight: 800, fontSize: 24, color: C.danger }}>Algo falló</h2>
+        <h2 style={{ fontFamily: display, fontWeight: 800, fontSize: 24, color: C.red }}>Algo falló</h2>
         <p style={{ color: C.muted, lineHeight: 1.6, marginTop: 12 }}>{err}</p>
-        <p style={{ color: C.muted, lineHeight: 1.6, marginTop: 8 }}>
-          Revisá que hayas corrido el script SQL en Supabase y que las variables de entorno sean correctas.
-        </p>
         <div style={{ marginTop: 20 }}>
           <Btn onClick={loadCore}>Reintentar</Btn>
         </div>
@@ -114,12 +162,12 @@ function Pill({ children }) {
       style={{
         fontFamily: body,
         fontSize: 12,
-        fontWeight: 600,
+        fontWeight: 700,
         letterSpacing: 0.5,
         textTransform: "uppercase",
-        color: C.tang,
-        background: "rgba(255,122,61,0.12)",
-        border: `1px solid ${C.tang}`,
+        color: C.celesteDk,
+        background: "rgba(90,169,230,0.14)",
+        border: `1px solid ${C.celeste}`,
         borderRadius: 999,
         padding: "4px 12px",
       }}
@@ -131,10 +179,11 @@ function Pill({ children }) {
 
 function Btn({ children, onClick, kind = "primary", disabled, full }) {
   const styles = {
-    primary: { background: C.tang, color: "#241C26", border: "none" },
-    ghost: { background: "transparent", color: C.cream, border: `1px solid ${C.line}` },
-    gold: { background: C.gold, color: "#241C26", border: "none" },
-    danger: { background: "transparent", color: C.danger, border: `1px solid ${C.danger}` },
+    primary: { background: C.red, color: "#fff", border: "none", boxShadow: "0 6px 16px rgba(227,30,36,0.28)" },
+    celeste: { background: C.celeste, color: "#fff", border: "none", boxShadow: "0 6px 16px rgba(90,169,230,0.30)" },
+    ghost: { background: "#fff", color: C.ink, border: `1.5px solid ${C.line}` },
+    gold: { background: C.gold, color: "#3A2A00", border: "none", boxShadow: "0 6px 16px rgba(242,177,46,0.30)" },
+    danger: { background: "#fff", color: C.red, border: `1.5px solid ${C.red}` },
   };
   return (
     <button
@@ -160,8 +209,8 @@ function Btn({ children, onClick, kind = "primary", disabled, full }) {
 function Home({ config, dishes, setView }) {
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 40 }}>
-        <Pill>Contest único · 3 premios</Pill>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+        <Pill>⚽ Mitad de año</Pill>
         <button
           onClick={() => setView("admin")}
           aria-label="Panel"
@@ -171,23 +220,28 @@ function Home({ config, dishes, setView }) {
         </button>
       </div>
 
-      <div style={{ textAlign: "center", margin: "48px 0 56px" }}>
-        <div style={{ fontSize: 56, lineHeight: 1 }}>🍳</div>
+      <div style={{ textAlign: "center", margin: "28px 0 44px" }}>
+        <PshLogo size={64} />
+        <div style={{ margin: "18px 0 14px" }}>
+          <FlagStripe />
+        </div>
+        <div style={{ fontSize: 40, lineHeight: 1, letterSpacing: 4 }}>⚽ 🍽️ 🏆</div>
         <h1
           style={{
             fontFamily: display,
             fontWeight: 800,
             fontSize: 44,
             lineHeight: 1.02,
-            margin: "20px 0 12px",
+            margin: "16px 0 12px",
             letterSpacing: -1,
           }}
         >
           {config.contest_name}
         </h1>
-        <p style={{ color: C.muted, fontSize: 15, maxWidth: 360, margin: "0 auto", lineHeight: 1.5 }}>
-          Tenés {config.points_per_voter} puntos para repartir entre tus platos favoritos —no te alcanzan para todos,
-          así que elegí bien. Quién cocinó cada plato es secreto hasta la premiación.
+        <p style={{ color: C.muted, fontSize: 15, maxWidth: 380, margin: "0 auto", lineHeight: 1.55 }}>
+          Tenés <b style={{ color: C.ink }}>{config.points_per_voter} puntos</b> para repartir entre tus platos
+          favoritos —no te alcanzan para todos, así que elegí bien. Quién cocinó cada plato es secreto hasta la
+          premiación.
         </p>
       </div>
 
@@ -200,8 +254,8 @@ function Home({ config, dishes, setView }) {
         </Btn>
       </div>
 
-      <p style={{ textAlign: "center", color: C.muted, fontSize: 13, marginTop: 28 }}>
-        {dishes.length} {dishes.length === 1 ? "plato" : "platos"}
+      <p style={{ textAlign: "center", color: C.muted, fontSize: 13, marginTop: 24 }}>
+        {dishes.length} {dishes.length === 1 ? "plato" : "platos"} en la mesa
         {" · "}
         {config.voting_open ? "votación abierta" : "votación cerrada"}
       </p>
@@ -260,7 +314,7 @@ function Vote({ config, dishes, setView }) {
     return (
       <Shell title="Votación cerrada" setView={setView}>
         <p style={{ color: C.muted, lineHeight: 1.6 }}>
-          La votación ya está cerrada. Andá a <b style={{ color: C.cream }}>Resultados</b> para ver el podio.
+          La votación ya está cerrada. Andá a <b style={{ color: C.ink }}>Resultados</b> para ver el podio.
         </p>
         <div style={{ marginTop: 24 }}>
           <Btn kind="gold" onClick={() => setView("results")}>
@@ -308,21 +362,22 @@ function Vote({ config, dishes, setView }) {
           >
             ← Inicio
           </button>
-          <span style={{ color: C.muted, fontSize: 13 }}>tu voto</span>
+          <span style={{ color: C.muted, fontSize: 13 }}>tu voto ⚽</span>
         </div>
         <div
           style={{
             background: C.surface,
-            border: `1px solid ${remaining === 0 ? C.pist : C.line}`,
+            border: `1.5px solid ${remaining === 0 ? C.green : C.line}`,
             borderRadius: 16,
             padding: "14px 18px",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
+            boxShadow: "0 4px 14px rgba(24,44,62,0.06)",
           }}
         >
           <span style={{ color: C.muted, fontSize: 13, fontWeight: 600 }}>Puntos sin repartir</span>
-          <span style={{ fontFamily: display, fontSize: 32, fontWeight: 800, color: remaining === 0 ? C.pist : C.tang }}>
+          <span style={{ fontFamily: display, fontSize: 32, fontWeight: 800, color: remaining === 0 ? C.green : C.red }}>
             {remaining}
             <span style={{ fontSize: 15, color: C.muted, fontWeight: 600 }}> / {total}</span>
           </span>
@@ -337,13 +392,14 @@ function Vote({ config, dishes, setView }) {
               key={d.id}
               style={{
                 background: C.surface,
-                border: `1px solid ${v > 0 ? C.tang : C.line}`,
+                border: `1.5px solid ${v > 0 ? C.celeste : C.line}`,
                 borderRadius: 16,
                 padding: "14px 16px",
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
                 gap: 12,
+                boxShadow: v > 0 ? "0 4px 14px rgba(90,169,230,0.15)" : "0 2px 8px rgba(24,44,62,0.04)",
               }}
             >
               <div style={{ minWidth: 0 }}>
@@ -369,11 +425,11 @@ function Vote({ config, dishes, setView }) {
           {saving ? "Guardando…" : saved ? "✓ Voto guardado" : "Guardar mi voto"}
         </Btn>
         {saved && (
-          <p style={{ textAlign: "center", color: C.pist, fontSize: 13, marginTop: 12 }}>
+          <p style={{ textAlign: "center", color: C.green, fontSize: 13, marginTop: 12 }}>
             Listo, tu voto quedó guardado. Podés volver cuando quieras desde este mismo celu y editarlo.
           </p>
         )}
-        {err && <p style={{ textAlign: "center", color: C.danger, fontSize: 13, marginTop: 12 }}>{err}</p>}
+        {err && <p style={{ textAlign: "center", color: C.red, fontSize: 13, marginTop: 12 }}>{err}</p>}
         {config.max_per_dish > 0 && (
           <p style={{ textAlign: "center", color: C.muted, fontSize: 12, marginTop: 10 }}>
             Máximo {config.max_per_dish} puntos por plato.
@@ -393,9 +449,9 @@ function Stepper({ label, onClick, disabled }) {
         width: 38,
         height: 38,
         borderRadius: 10,
-        border: `1px solid ${C.line}`,
+        border: `1.5px solid ${C.line}`,
         background: C.surface2,
-        color: C.cream,
+        color: C.ink,
         fontSize: 22,
         fontWeight: 700,
         cursor: disabled ? "not-allowed" : "pointer",
@@ -420,7 +476,7 @@ function Results({ config, dishes, setView }) {
       setTotals(totals);
       setVoters(voterCount);
     } catch (e) {
-      // silencioso: seguimos con lo último que tengamos
+      // silencioso
     } finally {
       setLoading(false);
     }
@@ -428,7 +484,7 @@ function Results({ config, dishes, setView }) {
 
   useEffect(() => {
     load();
-    timer.current = setInterval(load, 4000); // refresco en vivo cada 4s
+    timer.current = setInterval(load, 4000);
     return () => clearInterval(timer.current);
   }, [load]);
 
@@ -441,7 +497,7 @@ function Results({ config, dishes, setView }) {
   const podiumColors = [C.gold, C.silver, C.bronze];
 
   return (
-    <Shell title="Resultados" setView={setView} onRefresh={load}>
+    <Shell title="Resultados 🏆" setView={setView} onRefresh={load}>
       {loading ? (
         <p style={{ color: C.muted }}>Sumando puntos…</p>
       ) : ranked.every((d) => d.points === 0) ? (
@@ -458,12 +514,13 @@ function Results({ config, dishes, setView }) {
                 key={d.id}
                 style={{
                   background: C.surface,
-                  border: `1px solid ${podiumColors[i]}`,
+                  border: `2px solid ${podiumColors[i]}`,
                   borderRadius: 16,
                   padding: "16px 18px",
                   display: "flex",
                   alignItems: "center",
                   gap: 14,
+                  boxShadow: "0 6px 18px rgba(24,44,62,0.08)",
                 }}
               >
                 <span style={{ fontSize: 34 }}>{medals[i]}</span>
@@ -495,7 +552,7 @@ function Results({ config, dishes, setView }) {
                 >
                   <span style={{ color: C.muted, fontFamily: display, fontWeight: 700, minWidth: 22 }}>{i + 4}</span>
                   <span style={{ flex: 1, fontSize: 15 }}>{d.name}</span>
-                  <span style={{ fontFamily: display, fontWeight: 700, color: C.cream }}>{d.points}</span>
+                  <span style={{ fontFamily: display, fontWeight: 700, color: C.ink }}>{d.points}</span>
                 </div>
               ))}
             </div>
@@ -592,7 +649,7 @@ function Admin({ config, setConfig, dishes, setView, reload }) {
 
   return (
     <Shell title="Panel de organización" setView={setView}>
-      {msg && <div style={{ color: C.pist, fontSize: 13, marginBottom: 16, fontWeight: 600 }}>✓ {msg}</div>}
+      {msg && <div style={{ color: C.green, fontSize: 13, marginBottom: 16, fontWeight: 600 }}>✓ {msg}</div>}
 
       <Section title="El concurso">
         <Field label="Nombre del contest">
@@ -631,7 +688,7 @@ function Admin({ config, setConfig, dishes, setView, reload }) {
             justifyContent: "space-between",
             alignItems: "center",
             background: C.surface,
-            border: `1px solid ${C.line}`,
+            border: `1.5px solid ${C.line}`,
             borderRadius: 12,
             padding: "12px 16px",
             marginTop: 4,
@@ -669,6 +726,7 @@ function Admin({ config, setConfig, dishes, setView, reload }) {
                 alignItems: "center",
                 gap: 10,
                 background: C.surface,
+                border: `1px solid ${C.line}`,
                 borderRadius: 10,
                 padding: "10px 14px",
               }}
@@ -701,9 +759,9 @@ const inputStyle = {
   fontFamily: body,
   fontSize: 15,
   background: C.surface,
-  border: `1px solid ${C.line}`,
+  border: `1.5px solid ${C.line}`,
   borderRadius: 12,
-  color: C.cream,
+  color: C.ink,
   padding: "12px 14px",
   outline: "none",
   boxSizing: "border-box",
@@ -728,7 +786,7 @@ function Section({ title, children }) {
           fontSize: 13,
           textTransform: "uppercase",
           letterSpacing: 1,
-          color: C.tang,
+          color: C.celesteDk,
           marginBottom: 14,
         }}
       >
@@ -742,21 +800,24 @@ function Section({ title, children }) {
 function Shell({ title, setView, children, onRefresh }) {
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 28 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
         <button
           onClick={() => setView("home")}
           style={{ background: "none", border: "none", color: C.muted, fontSize: 14, cursor: "pointer", padding: 0 }}
         >
           ← Inicio
         </button>
-        {onRefresh && (
-          <button
-            onClick={onRefresh}
-            style={{ background: "none", border: "none", color: C.tang, fontSize: 14, cursor: "pointer", fontWeight: 600 }}
-          >
-            ↻ Actualizar
-          </button>
-        )}
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          {onRefresh && (
+            <button
+              onClick={onRefresh}
+              style={{ background: "none", border: "none", color: C.red, fontSize: 14, cursor: "pointer", fontWeight: 600 }}
+            >
+              ↻ Actualizar
+            </button>
+          )}
+          <PshLogo size={30} />
+        </div>
       </div>
       <h2 style={{ fontFamily: display, fontWeight: 800, fontSize: 32, letterSpacing: -0.5, marginBottom: 24 }}>
         {title}
