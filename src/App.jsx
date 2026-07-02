@@ -467,14 +467,16 @@ function Stepper({ label, onClick, disabled }) {
 function Results({ config, dishes, setView }) {
   const [totals, setTotals] = useState({});
   const [voters, setVoters] = useState(0);
+  const [hidden, setHidden] = useState(config.results_hidden);
   const [loading, setLoading] = useState(true);
   const timer = useRef(null);
 
   const load = useCallback(async () => {
     try {
-      const { totals, voterCount } = await fetchTally();
-      setTotals(totals);
-      setVoters(voterCount);
+      const [cfg, tally] = await Promise.all([fetchConfig(), fetchTally()]);
+      setHidden(cfg.results_hidden);
+      setTotals(tally.totals);
+      setVoters(tally.voterCount);
     } catch (e) {
       // silencioso
     } finally {
@@ -487,6 +489,28 @@ function Results({ config, dishes, setView }) {
     timer.current = setInterval(load, 4000);
     return () => clearInterval(timer.current);
   }, [load]);
+
+  // Mientras esté oculto, nadie ve el podio (se revela en la premiación).
+  if (hidden) {
+    return (
+      <Shell title="Resultados 🏆" setView={setView} onRefresh={load}>
+        <div style={{ textAlign: "center", padding: "40px 0" }}>
+          <div style={{ fontSize: 52 }}>🤫</div>
+          <h3 style={{ fontFamily: display, fontWeight: 800, fontSize: 22, margin: "16px 0 8px" }}>
+            El podio se revela en la premiación
+          </h3>
+          <p style={{ color: C.muted, lineHeight: 1.6, maxWidth: 340, margin: "0 auto" }}>
+            Seguí votando tranqui —los resultados están tapados para que no se pierda la sorpresa. 🇦🇷
+          </p>
+          {!loading && (
+            <p style={{ color: C.muted, fontSize: 13, marginTop: 20 }}>
+              {voters} {voters === 1 ? "persona ya votó" : "personas ya votaron"}
+            </p>
+          )}
+        </div>
+      </Shell>
+    );
+  }
 
   const ranked = dishes
     .map((d) => ({ ...d, points: totals[d.id] || 0 }))
@@ -570,11 +594,28 @@ function Admin({ config, setConfig, dishes, setView, reload }) {
   const [newDish, setNewDish] = useState("");
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
+  const [preview, setPreview] = useState(null); // vista previa del podio (solo admin)
 
   function flash(m) {
     setMsg(m);
     setTimeout(() => setMsg(""), 2200);
   }
+
+  const loadPreview = useCallback(async () => {
+    try {
+      const { totals, voterCount } = await fetchTally();
+      const ranked = dishes
+        .map((d) => ({ ...d, points: totals[d.id] || 0 }))
+        .sort((a, b) => b.points - a.points);
+      setPreview({ ranked, voterCount });
+    } catch (e) {
+      // silencioso
+    }
+  }, [dishes]);
+
+  useEffect(() => {
+    if (unlocked) loadPreview();
+  }, [unlocked, loadPreview]);
 
   async function saveConfig(next) {
     const merged = { ...local, ...next };
@@ -585,6 +626,7 @@ function Admin({ config, setConfig, dishes, setView, reload }) {
         points_per_voter: merged.points_per_voter,
         max_per_dish: merged.max_per_dish,
         voting_open: merged.voting_open,
+        results_hidden: merged.results_hidden,
       });
       setConfig(merged);
       flash("Guardado");
@@ -702,6 +744,66 @@ function Admin({ config, setConfig, dishes, setView, reload }) {
             {local.voting_open ? "Cerrar" : "Abrir"}
           </Btn>
         </div>
+      </Section>
+
+      <Section title="El podio">
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            background: C.surface,
+            border: `1.5px solid ${local.results_hidden ? C.line : C.green}`,
+            borderRadius: 12,
+            padding: "12px 16px",
+            marginBottom: 14,
+          }}
+        >
+          <span style={{ fontWeight: 600 }}>
+            {local.results_hidden ? "🤫 Podio oculto" : "🎉 Podio a la vista"}
+          </span>
+          <Btn
+            kind={local.results_hidden ? "gold" : "ghost"}
+            onClick={() => saveConfig({ results_hidden: !local.results_hidden })}
+          >
+            {local.results_hidden ? "Revelar" : "Ocultar"}
+          </Btn>
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <span style={{ color: C.muted, fontSize: 12, fontWeight: 600 }}>Vista previa (solo vos)</span>
+          <button
+            onClick={loadPreview}
+            style={{ background: "none", border: "none", color: C.red, fontSize: 13, cursor: "pointer", fontWeight: 600 }}
+          >
+            ↻ Actualizar
+          </button>
+        </div>
+        {preview && preview.ranked.some((d) => d.points > 0) ? (
+          <div style={{ display: "grid", gap: 6 }}>
+            {preview.ranked.slice(0, 3).map((d, i) => (
+              <div
+                key={d.id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  background: C.surface,
+                  border: `1px solid ${[C.gold, C.silver, C.bronze][i]}`,
+                  borderRadius: 10,
+                  padding: "10px 14px",
+                }}
+              >
+                <span style={{ fontSize: 20 }}>{["🥇", "🥈", "🥉"][i]}</span>
+                <span style={{ flex: 1, fontWeight: 600 }}>{d.name}</span>
+                <span style={{ fontFamily: display, fontWeight: 800 }}>{d.points}</span>
+              </div>
+            ))}
+            <p style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>{preview.voterCount} votaron hasta ahora</p>
+          </div>
+        ) : (
+          <p style={{ color: C.muted, fontSize: 14 }}>Todavía no hay votos.</p>
+        )}
       </Section>
 
       <Section title={`Platos (${dishes.length})`}>
