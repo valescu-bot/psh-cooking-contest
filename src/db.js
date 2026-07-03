@@ -1,18 +1,30 @@
 import { supabase } from "./supabaseClient";
 
-// ─── Voter ID: un identificador por dispositivo, guardado en el navegador.
-// Esto hace que cada persona tenga UN voto que puede retomar y editar.
-export function getVoterId() {
-  let id = localStorage.getItem("psh_voter_id");
+// ─── Identidad ────────────────────────────────────────────
+// Guardamos un id del dispositivo para que la MISMA persona pueda
+// editar su voto desde su celu, pero otro celu no pueda votar con
+// un nombre ya usado.
+export function getDeviceId() {
+  let id = localStorage.getItem("psh_device_id");
   if (!id) {
     id =
-      "v_" +
+      "d_" +
       (crypto.randomUUID
         ? crypto.randomUUID()
         : Date.now().toString(36) + Math.random().toString(36).slice(2));
-    localStorage.setItem("psh_voter_id", id);
+    localStorage.setItem("psh_device_id", id);
   }
   return id;
+}
+
+// Normaliza "Ana  Pérez " -> "ana perez" para comparar sin duplicar.
+export function normName(s) {
+  return (s || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, " ");
 }
 
 // ─── Config ───────────────────────────────────────────────
@@ -47,46 +59,69 @@ export async function deleteDish(id) {
   if (error) throw error;
 }
 
-// ─── Votos ────────────────────────────────────────────────
-export async function fetchMyBallot(voterId) {
+// ─── Votos (un voto por persona, identificado por nombre) ──
+// Cada persona = una fila en "ballots", con su asignación de puntos.
+export async function fetchBallotByName(nameKey) {
   const { data, error } = await supabase
-    .from("votes")
-    .select("dish_id, points")
-    .eq("voter_id", voterId);
+    .from("ballots")
+    .select("*")
+    .eq("name_key", nameKey)
+    .maybeSingle();
   if (error) throw error;
-  const map = {};
-  (data || []).forEach((r) => {
-    map[r.dish_id] = r.points;
-  });
-  return map;
+  return data; // null si no existe
 }
 
-// Guarda el voto completo: borra los míos y reinserta solo los > 0.
-export async function saveBallot(voterId, alloc) {
-  const del = await supabase.from("votes").delete().eq("voter_id", voterId);
-  if (del.error) throw del.error;
-  const rows = Object.entries(alloc)
-    .filter(([, p]) => p > 0)
-    .map(([dish_id, points]) => ({ voter_id: voterId, dish_id, points }));
-  if (rows.length) {
-    const ins = await supabase.from("votes").insert(rows);
-    if (ins.error) throw ins.error;
+export async function saveBallot({ nameKey, voterName, deviceId, alloc, existing }) {
+  if (existing) {
+    // Solo el dueño (mismo dispositivo) puede editar su voto.
+    if (existing.device_id && existing.device_id !== deviceId) {
+      const e = new Error("DUP");
+      e.code = "DUP";
+      throw e;
+    }
+    const { error } = await supabase
+      .from("ballots")
+      .update({ voter_name: voterName, alloc, updated_at: new Date().toISOString() })
+      .eq("name_key", nameKey);
+    if (error) throw error;
+  } else {
+    const { error } = await supabase
+      .from("ballots")
+      .insert({ name_key: nameKey, voter_name: voterName, device_id: deviceId, alloc });
+    if (error) {
+      // 23505 = violación de clave única (alguien votó con ese nombre al mismo tiempo)
+      if (error.code === "23505") {
+        const e = new Error("DUP");
+        e.code = "DUP";
+        throw e;
+      }
+      throw error;
+    }
   }
 }
 
 export async function fetchTally() {
-  const { data, error } = await supabase.from("votes").select("dish_id, points, voter_id");
+  const { data, error } = await supabase.from("ballots").select("name_key, voter_name, alloc");
   if (error) throw error;
   const totals = {};
-  const voters = new Set();
-  (data || []).forEach((r) => {
-    totals[r.dish_id] = (totals[r.dish_id] || 0) + r.points;
-    voters.add(r.voter_id);
+  let voterCount = 0;
+  const voters = [];
+  (data || []).forEach((b) => {
+    const alloc = b.alloc || {};
+    const sum = Object.values(alloc).reduce((a, p) => a + (p || 0), 0);
+    if (sum > 0) {
+      voterCount += 1;
+      voters.push(b.voter_name);
+    }
+    for (const [id, p] of Object.entries(alloc)) {
+      totals[id] = (totals[id] || 0) + (p || 0);
+    }
   });
-  return { totals, voterCount: voters.size };
+  voters.sort((a, b) => a.localeCompare(b));
+  return { totals, voterCount, voters };
 }
 
 export async function resetVotes() {
-  const { error } = await supabase.from("votes").delete().neq("voter_id", "___none___");
+  const { error } = await supabase.from("ballots").delete().neq("name_key", "___none___");
   if (error) throw error;
 }
