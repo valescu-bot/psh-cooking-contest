@@ -1,13 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabaseReady } from "./supabaseClient";
 import {
-  getVoterId,
+  getDeviceId,
+  normName,
   fetchConfig,
   updateConfig,
   fetchDishes,
   addDish,
   deleteDish,
-  fetchMyBallot,
+  fetchBallotByName,
   saveBallot,
   fetchTally,
   resetVotes,
@@ -264,9 +265,13 @@ function Home({ config, dishes, setView }) {
 }
 
 function Vote({ config, dishes, setView }) {
-  const voterId = getVoterId();
+  const deviceId = getDeviceId();
+  const [step, setStep] = useState("name"); // name | ballot | blocked
+  const [name, setName] = useState("");
+  const [nameKey, setNameKey] = useState("");
+  const [existing, setExisting] = useState(null);
   const [alloc, setAlloc] = useState({});
-  const [loadingBallot, setLoadingBallot] = useState(true);
+  const [checking, setChecking] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [err, setErr] = useState("");
@@ -276,18 +281,31 @@ function Vote({ config, dishes, setView }) {
   const remaining = total - used;
   const maxPer = config.max_per_dish > 0 ? config.max_per_dish : total;
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const mine = await fetchMyBallot(voterId);
-        setAlloc(mine);
-      } catch (e) {
-        setErr(e.message);
-      } finally {
-        setLoadingBallot(false);
+  async function start() {
+    const clean = name.trim().replace(/\s+/g, " ");
+    if (clean.split(" ").length < 2 || clean.length < 4) {
+      setErr("Escribí tu nombre y apellido.");
+      return;
+    }
+    setChecking(true);
+    setErr("");
+    try {
+      const key = normName(clean);
+      const found = await fetchBallotByName(key);
+      if (found && found.device_id && found.device_id !== deviceId) {
+        setStep("blocked");
+      } else {
+        setNameKey(key);
+        setExisting(found || null);
+        setAlloc(found ? found.alloc || {} : {});
+        setStep("ballot");
       }
-    })();
-  }, [voterId]);
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setChecking(false);
+    }
+  }
 
   function setDish(id, val) {
     const v = Math.max(0, Math.min(val, maxPer));
@@ -301,10 +319,12 @@ function Vote({ config, dishes, setView }) {
     setSaving(true);
     setErr("");
     try {
-      await saveBallot(voterId, alloc);
+      await saveBallot({ nameKey, voterName: name.trim().replace(/\s+/g, " "), deviceId, alloc, existing });
       setSaved(true);
+      setExisting({ device_id: deviceId, alloc });
     } catch (e) {
-      setErr(e.message);
+      if (e.code === "DUP") setStep("blocked");
+      else setErr(e.message);
     } finally {
       setSaving(false);
     }
@@ -325,19 +345,56 @@ function Vote({ config, dishes, setView }) {
     );
   }
 
-  if (loadingBallot)
-    return (
-      <Shell title="Tu voto" setView={setView}>
-        <p style={{ color: C.muted }}>Cargando tu voto…</p>
-      </Shell>
-    );
-
   if (dishes.length === 0) {
     return (
       <Shell title="Tu voto" setView={setView}>
         <p style={{ color: C.muted, lineHeight: 1.6 }}>
           Todavía no hay platos cargados. Avisale a quien organiza para que los sume desde el panel ⚙︎.
         </p>
+      </Shell>
+    );
+  }
+
+  if (step === "blocked") {
+    return (
+      <Shell title="Ese nombre ya votó" setView={setView}>
+        <div style={{ textAlign: "center", padding: "20px 0" }}>
+          <div style={{ fontSize: 46 }}>🙅</div>
+          <p style={{ color: C.muted, lineHeight: 1.6, maxWidth: 340, margin: "14px auto 0" }}>
+            Ya hay un voto registrado con ese nombre y apellido. Cada persona puede votar una sola vez. Si sos vos y
+            cambiaste de teléfono, pedile a quien organiza que reinicie tu voto.
+          </p>
+        </div>
+        <div style={{ marginTop: 20 }}>
+          <Btn full kind="ghost" onClick={() => setView("home")}>
+            Volver al inicio
+          </Btn>
+        </div>
+      </Shell>
+    );
+  }
+
+  if (step === "name") {
+    return (
+      <Shell title="Tu voto" setView={setView}>
+        <p style={{ color: C.muted, lineHeight: 1.6, marginBottom: 20 }}>
+          Escribí tu <b style={{ color: C.ink }}>nombre y apellido</b> para votar. Sirve para que cada persona vote una
+          sola vez.
+        </p>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && start()}
+          placeholder="Nombre y apellido"
+          autoFocus
+          style={inputStyle}
+        />
+        {err && <p style={{ color: C.red, fontSize: 13, marginTop: 10 }}>{err}</p>}
+        <div style={{ marginTop: 16 }}>
+          <Btn full kind="primary" onClick={start} disabled={checking}>
+            {checking ? "Un segundo…" : "Empezar a votar →"}
+          </Btn>
+        </div>
       </Shell>
     );
   }
@@ -362,7 +419,7 @@ function Vote({ config, dishes, setView }) {
           >
             ← Inicio
           </button>
-          <span style={{ color: C.muted, fontSize: 13 }}>tu voto ⚽</span>
+          <span style={{ color: C.muted, fontSize: 13 }}>{name.trim().split(" ")[0]} ⚽</span>
         </div>
         <div
           style={{
@@ -426,7 +483,7 @@ function Vote({ config, dishes, setView }) {
         </Btn>
         {saved && (
           <p style={{ textAlign: "center", color: C.green, fontSize: 13, marginTop: 12 }}>
-            Listo, tu voto quedó guardado. Podés volver cuando quieras desde este mismo celu y editarlo.
+            Listo, tu voto quedó guardado. Podés seguir ajustando y guardar de nuevo desde este mismo celu.
           </p>
         )}
         {err && <p style={{ textAlign: "center", color: C.red, fontSize: 13, marginTop: 12 }}>{err}</p>}
@@ -603,11 +660,11 @@ function Admin({ config, setConfig, dishes, setView, reload }) {
 
   const loadPreview = useCallback(async () => {
     try {
-      const { totals, voterCount } = await fetchTally();
+      const { totals, voterCount, voters } = await fetchTally();
       const ranked = dishes
         .map((d) => ({ ...d, points: totals[d.id] || 0 }))
         .sort((a, b) => b.points - a.points);
-      setPreview({ ranked, voterCount });
+      setPreview({ ranked, voterCount, voters });
     } catch (e) {
       // silencioso
     }
@@ -845,6 +902,49 @@ function Admin({ config, setConfig, dishes, setView, reload }) {
           ))}
           {dishes.length === 0 && <p style={{ color: C.muted, fontSize: 14 }}>Todavía no hay platos.</p>}
         </div>
+      </Section>
+
+      <Section title={`Votantes únicos (${preview ? preview.voterCount : 0})`}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <span style={{ color: C.muted, fontSize: 12 }}>Un nombre = un voto. Acá ves quiénes votaron.</span>
+          <button
+            onClick={loadPreview}
+            style={{ background: "none", border: "none", color: C.red, fontSize: 13, cursor: "pointer", fontWeight: 600 }}
+          >
+            ↻ Actualizar
+          </button>
+        </div>
+        {preview && preview.voters && preview.voters.length > 0 ? (
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 6,
+              background: C.surface,
+              border: `1px solid ${C.line}`,
+              borderRadius: 12,
+              padding: 12,
+            }}
+          >
+            {preview.voters.map((n, i) => (
+              <span
+                key={i}
+                style={{
+                  fontSize: 13,
+                  color: C.ink,
+                  background: C.surface2,
+                  border: `1px solid ${C.line}`,
+                  borderRadius: 999,
+                  padding: "4px 10px",
+                }}
+              >
+                {n}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p style={{ color: C.muted, fontSize: 14 }}>Todavía no votó nadie.</p>
+        )}
       </Section>
 
       <Section title="Zona de riesgo">
